@@ -1,19 +1,16 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/auth/AuthProvider";
 
-export const Route = createFileRoute("/_authenticated/barbers")({
-  component: BarbersShell,
-});
-
-function BarbersShell() {
-  const { user } = Route.useRouteContext();
+export default function Barbers() {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const role = (user.user_metadata?.role as string | undefined) ?? "buyer";
+  const role = (user?.user_metadata?.role as string | undefined) ?? "buyer";
   const isShop = role === "shop";
 
   async function signOut() {
     await supabase.auth.signOut();
-    navigate({ to: "/login", replace: true });
+    navigate("/login", { replace: true });
   }
 
   return (
@@ -25,7 +22,7 @@ function BarbersShell() {
           </Link>
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:inline">
-              Hi {user.email}
+              Hi {user?.email}
             </span>
             {isShop && (
               <span className="inline-flex items-center h-6 px-2.5 rounded-full bg-accent text-accent-foreground text-xs font-medium">

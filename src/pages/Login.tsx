@@ -1,16 +1,12 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-export const Route = createFileRoute("/login")({
-  component: LoginPage,
-});
 
 type Mode = "signin" | "signup";
 type Role = "buyer" | "shop";
 
-function LoginPage() {
+export default function Login() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("signin");
   const [role, setRole] = useState<Role>("buyer");
@@ -20,7 +16,7 @@ function LoginPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/barbers", replace: true });
+      if (data.session) navigate("/barbers", { replace: true });
     });
   }, [navigate]);
 
@@ -43,7 +39,7 @@ function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-      navigate({ to: "/barbers", replace: true });
+      navigate("/barbers", { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       toast.error(msg);

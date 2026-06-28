@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { Search, BadgeCheck, Zap, ShieldCheck, Star } from "lucide-react";
 import heroLeft from "@/assets/hero-left.jpg";
 import heroRight from "@/assets/hero-right.jpg";
@@ -6,10 +6,6 @@ import barber1 from "@/assets/barber-1.jpg";
 import barber2 from "@/assets/barber-2.jpg";
 import barber3 from "@/assets/barber-3.jpg";
 import barber4 from "@/assets/barber-4.jpg";
-
-export const Route = createFileRoute("/")({
-  component: Landing,
-});
 
 const filters = ["All", "Cut", "Color", "Perm", "Beard"] as const;
 
@@ -22,7 +18,7 @@ const barbers = [
   { name: "Daniel Cruz", shop: "Cruz Barbershop · LES", img: barber1, services: ["Cut", "Beard"], rating: 4.8, reviews: 256, from: 35 },
 ];
 
-function Landing() {
+export default function Landing() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
