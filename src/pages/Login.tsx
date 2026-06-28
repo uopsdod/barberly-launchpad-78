@@ -4,12 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 type Mode = "signin" | "signup";
-type Role = "buyer" | "shop";
+type Role = "customer" | "shop";
 
 export default function Login() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("signin");
-  const [role, setRole] = useState<Role>("buyer");
+  const [role, setRole] = useState<Role>("customer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -93,8 +93,8 @@ export default function Login() {
                 <div className="mt-2 grid grid-cols-2 gap-2 p-1 bg-muted rounded-full text-sm">
                   <button
                     type="button"
-                    onClick={() => setRole("buyer")}
-                    className={`h-10 rounded-full transition ${role === "buyer" ? "bg-primary text-primary-foreground" : "text-foreground"}`}
+                    onClick={() => setRole("customer")}
+                    className={`h-10 rounded-full transition ${role === "customer" ? "bg-primary text-primary-foreground" : "text-foreground"}`}
                   >
                     Customer
                   </button>
