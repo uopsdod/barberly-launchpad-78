@@ -92,8 +92,7 @@ export default function ShopOnboarding() {
             <div>
               <h2 className="font-display text-xl text-foreground">Payout settings</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Shop-level bank account. Month-end, the admin combines 80% of every barber under
-                your shop into one transfer here.{" "}
+                The bank account where your shop gets paid.{" "}
                 <span className="font-medium text-foreground">Use test data first.</span>
               </p>
             </div>
@@ -317,7 +316,7 @@ function BarberCard({ barber, onChanged }: { barber: Barber; onChanged: () => vo
             onChange={(e) => setIntro(e.target.value)}
             rows={3}
             className="mt-2 w-full px-4 py-3 rounded-2xl bg-background border border-border focus:border-ring outline-none text-sm resize-y"
-            placeholder="Optional — you'll be able to auto-generate this from featured photos later (AI)."
+            placeholder="Optional — a short bio for this barber."
           />
         </div>
       </div>

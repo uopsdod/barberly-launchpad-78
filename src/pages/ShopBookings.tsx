@@ -331,9 +331,7 @@ function SlotsPublisher({ barberId, slotMinutes }: { barberId: string; slotMinut
     <section className="bg-card border border-border rounded-3xl p-6 sm:p-8">
       <h2 className="font-display text-xl text-foreground">Publish bookable slots</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Each slot is a {slotMinutes}-minute window. Generate a day's worth, then a booking will
-        later span N = required_slots consecutive slots. Slots have no status — availability is
-        derived once bookings exist.
+        Each slot is a {slotMinutes}-minute window. Generate a day's worth of bookable slots.
       </p>
 
       <form onSubmit={generate} className="mt-5 grid sm:grid-cols-12 gap-3 items-end">

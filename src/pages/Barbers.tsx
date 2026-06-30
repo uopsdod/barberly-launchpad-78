@@ -76,7 +76,7 @@ export default function Barbers() {
         <p className="mt-5 text-muted-foreground text-base sm:text-lg">
           {isShop
             ? "Set up your barbers, services, portfolio photos and bookable schedule."
-            : "Browse & booking arrive in the next milestone."}
+            : "Browse & booking are coming soon."}
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
