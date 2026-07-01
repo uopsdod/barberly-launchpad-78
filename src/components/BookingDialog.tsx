@@ -32,28 +32,27 @@ type Props = {
 // available back-to-back from it (each next slot begins exactly when the
 // previous ends). This mirrors create_booking's server-side check so we only
 // ever offer start times that will actually book.
-function computeValidStarts(free: Slot[], n: number): Slot[] {
-  const res: Slot[] = [];
+function computeValidStartIndexes(free: Slot[], n: number): Set<number> {
+  const valid = new Set<number>();
   for (let i = 0; i + n <= free.length; i++) {
     let ok = true;
     for (let k = 1; k < n; k++) {
-      const prev = free[i + k - 1];
-      const cur = free[i + k];
-      if (new Date(cur.starts_at).getTime() !== new Date(prev.ends_at).getTime()) {
+      if (new Date(free[i + k].starts_at).getTime() !== new Date(free[i + k - 1].ends_at).getTime()) {
         ok = false;
         break;
       }
     }
-    if (ok) res.push(free[i]);
+    if (ok) valid.add(i);
   }
-  return res;
+  return valid;
 }
 
 export function BookingDialog({ open, onOpenChange, service, barberId, barberName, settings, slotMinutes }: Props) {
   const navigate = useNavigate();
+  const n = service.required_slots;
   const [loading, setLoading] = useState(true);
-  const [validStarts, setValidStarts] = useState<Slot[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [free, setFree] = useState<Slot[]>([]);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -61,7 +60,7 @@ export function BookingDialog({ open, onOpenChange, service, barberId, barberNam
     let active = true;
     (async () => {
       setLoading(true);
-      setSelected(null);
+      setSelectedIdx(null);
       const nowIso = new Date().toISOString();
       const { data: slots } = await supabase
         .from("bookable_slots")
@@ -83,35 +82,57 @@ export function BookingDialog({ open, onOpenChange, service, barberId, barberNam
         heldSet = new Set((held ?? []).map((h) => h.slot_id));
       }
 
-      const free = allSlots.filter((s) => !heldSet.has(s.id));
       if (!active) return;
-      setValidStarts(computeValidStarts(free, service.required_slots));
+      setFree(allSlots.filter((s) => !heldSet.has(s.id)));
       setLoading(false);
     })();
     return () => {
       active = false;
     };
-  }, [open, barberId, service.required_slots]);
+  }, [open, barberId]);
 
-  // group valid starts by calendar day
+  const validStartIdxs = useMemo(() => computeValidStartIndexes(free, n), [free, n]);
+
+  // the set of slot indexes consumed by the currently selected start
+  const spanIdxs = useMemo(() => {
+    if (selectedIdx === null) return new Set<number>();
+    const s = new Set<number>();
+    for (let k = 0; k < n; k++) s.add(selectedIdx + k);
+    return s;
+  }, [selectedIdx, n]);
+
+  const hasStarts = validStartIdxs.size > 0;
+
+  // group slot indexes by calendar day (only days that contain a valid start)
   const grouped = useMemo(() => {
-    const map = new Map<string, Slot[]>();
-    for (const s of validStarts) {
-      const key = format(new Date(s.starts_at), "EEE, MMM d");
+    const map = new Map<string, number[]>();
+    free.forEach((slot, i) => {
+      const key = format(new Date(slot.starts_at), "EEE, MMM d");
       const arr = map.get(key) ?? [];
-      arr.push(s);
+      arr.push(i);
       map.set(key, arr);
-    }
-    return Array.from(map.entries());
-  }, [validStarts]);
+    });
+    return Array.from(map.entries()).filter(([, idxs]) => idxs.some((i) => validStartIdxs.has(i)));
+  }, [free, validStartIdxs]);
+
+  const summary = useMemo(() => {
+    if (selectedIdx === null) return null;
+    const start = free[selectedIdx];
+    const end = free[selectedIdx + n - 1];
+    if (!start || !end) return null;
+    return {
+      day: format(new Date(start.starts_at), "EEE, MMM d"),
+      range: `${format(new Date(start.starts_at), "HH:mm")}–${format(new Date(end.ends_at), "HH:mm")}`,
+    };
+  }, [selectedIdx, free, n]);
 
   async function confirm() {
-    if (!selected) return;
+    if (selectedIdx === null) return;
     setSubmitting(true);
     try {
       const { error } = await supabase.rpc("create_booking", {
         p_service_id: service.id,
-        p_start_slot_id: selected,
+        p_start_slot_id: free[selectedIdx].id,
       });
       if (error) throw error;
       toast.success("Booked! You'll find it under My bookings.");
@@ -124,7 +145,7 @@ export function BookingDialog({ open, onOpenChange, service, barberId, barberNam
     }
   }
 
-  const durationMin = service.required_slots * slotMinutes;
+  const durationMin = n * slotMinutes;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -139,42 +160,65 @@ export function BookingDialog({ open, onOpenChange, service, barberId, barberNam
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[45vh] overflow-y-auto pr-1">
+        {n > 1 && (
+          <p className="text-sm text-muted-foreground -mt-1">
+            Pick a start time — this books <span className="font-medium text-foreground">{n}</span> back-to-back{" "}
+            {slotMinutes}-min slots.
+          </p>
+        )}
+
+        <div className="max-h-[42vh] overflow-y-auto pr-1">
           {loading ? (
             <div className="space-y-3 py-2">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />
               ))}
             </div>
-          ) : grouped.length === 0 ? (
+          ) : !hasStarts ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               No open time slots for this service right now. Please check back later.
             </p>
           ) : (
             <div className="space-y-5 py-1">
-              {grouped.map(([day, slots]) => (
+              {grouped.map(([day, idxs]) => (
                 <div key={day}>
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{day}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {slots.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => setSelected(s.id)}
-                        className={`h-9 px-3 rounded-full text-sm font-medium border transition ${
-                          selected === s.id
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-border hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        {format(new Date(s.starts_at), "HH:mm")}
-                      </button>
-                    ))}
+                    {idxs.map((i) => {
+                      const slot = free[i];
+                      const isStart = validStartIdxs.has(i);
+                      const inSpan = spanIdxs.has(i);
+                      const isSelectedStart = i === selectedIdx;
+                      return (
+                        <button
+                          key={slot.id}
+                          onClick={() => isStart && setSelectedIdx(i)}
+                          disabled={!isStart}
+                          aria-pressed={inSpan}
+                          className={`h-9 px-3 rounded-full text-sm font-medium border transition ${
+                            inSpan
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : isStart
+                                ? "border-border hover:bg-muted text-foreground"
+                                : "border-transparent text-muted-foreground/40 cursor-not-allowed"
+                          } ${isSelectedStart ? "ring-2 ring-ring ring-offset-2 ring-offset-background" : ""}`}
+                        >
+                          {format(new Date(slot.starts_at), "HH:mm")}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {summary && (
+          <p className="text-sm text-foreground">
+            Your appointment: <span className="font-medium">{summary.day} · {summary.range}</span>
+          </p>
+        )}
 
         <DialogFooter>
           <button
@@ -185,7 +229,7 @@ export function BookingDialog({ open, onOpenChange, service, barberId, barberNam
           </button>
           <button
             onClick={confirm}
-            disabled={!selected || submitting}
+            disabled={selectedIdx === null || submitting}
             className="h-10 px-5 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {submitting ? "Booking…" : "Confirm booking"}
