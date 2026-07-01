@@ -1,110 +1,121 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/auth/AuthProvider";
-import { useProfile } from "@/hooks/useProfile";
-import { toast } from "sonner";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { formatMoney, photoUrl } from "@/lib/format";
+import { CustomerHeader } from "@/components/CustomerHeader";
+import type { Tables } from "@/integrations/supabase/types";
+import { MapPin } from "lucide-react";
+
+type Barber = Tables<"barbers">;
+type Service = Tables<"services">;
+type Photo = Tables<"barber_photos">;
+
+const CATEGORY_LABELS: Record<string, string> = { cut: "Cut", color: "Color", perm: "Perm", beard: "Beard" };
 
 export default function Barbers() {
-  const { user } = useAuth();
-  const { isShop, loading, refresh } = useProfile();
-  const navigate = useNavigate();
-  const [upgrading, setUpgrading] = useState(false);
+  const settings = usePlatformSettings();
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    navigate("/login", { replace: true });
-  }
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const [b, s, p] = await Promise.all([
+        supabase.from("barbers").select("*").order("created_at", { ascending: true }),
+        supabase.from("services").select("*"),
+        supabase.from("barber_photos").select("*").order("sort_order", { ascending: true }),
+      ]);
+      if (!active) return;
+      setBarbers(b.data ?? []);
+      setServices(s.data ?? []);
+      setPhotos(p.data ?? []);
+      setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  // "Become a shop": flip the current user's OWN profiles.role to 'shop'
-  // (RLS profiles_update_own allows this). Never writes 'admin'.
-  async function becomeShop() {
-    if (!user) return;
-    setUpgrading(true);
-    try {
-      const { error } = await supabase.from("profiles").update({ role: "shop" }).eq("id", user.id);
-      if (error) throw error;
-      await refresh();
-      toast.success("You're a shop now — let's set up your barbers.");
-      navigate("/shop", { replace: true });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not upgrade to a shop");
-    } finally {
-      setUpgrading(false);
-    }
-  }
+  const cards = useMemo(
+    () =>
+      barbers.map((barber) => {
+        const svc = services.filter((s) => s.barber_id === barber.id);
+        const cats = Array.from(new Set(svc.map((s) => s.category)));
+        const minPrice = svc.length ? Math.min(...svc.map((s) => s.price)) : null;
+        const pics = photos.filter((ph) => ph.barber_id === barber.id);
+        const featured = pics.find((ph) => ph.is_featured) ?? pics[0] ?? null;
+        return { barber, cats, minPrice, featured };
+      }),
+    [barbers, services, photos],
+  );
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border/60 bg-background/80 backdrop-blur sticky top-0 z-30">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 h-16 flex items-center gap-3">
-          <Link to="/" className="font-display text-2xl font-semibold text-foreground">
-            Barberly
-          </Link>
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-muted-foreground hidden sm:inline">Hi {user?.email}</span>
-            {isShop && (
-              <span className="inline-flex items-center h-6 px-2.5 rounded-full bg-accent text-accent-foreground text-xs font-medium">
-                barber
-              </span>
-            )}
-            {isShop && (
-              <Link
-                to="/shop"
-                className="h-9 px-4 rounded-full border border-border text-sm font-medium hover:bg-muted transition inline-flex items-center"
-              >
-                Shop dashboard
-              </Link>
-            )}
-            <button
-              onClick={signOut}
-              className="h-9 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition"
-            >
-              Sign out
-            </button>
+      <CustomerHeader />
+      <main className="mx-auto max-w-6xl px-5 sm:px-8 py-10 animate-fade-up">
+        <p className="text-xs tracking-[0.25em] uppercase text-muted-foreground">Discover</p>
+        <h1 className="mt-3 font-display text-3xl sm:text-4xl text-foreground">Find your barber</h1>
+        <p className="mt-2 text-muted-foreground">Browse barbers, view their work, and book a slot.</p>
+
+        {loading ? (
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-72 rounded-2xl bg-muted animate-pulse" />
+            ))}
           </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-5 sm:px-8 py-24 text-center animate-fade-up">
-        <p className="text-xs tracking-[0.25em] uppercase text-muted-foreground">
-          {isShop ? "Barber dashboard" : "Discover"}
-        </p>
-        <h1 className="mt-4 font-display text-3xl sm:text-5xl text-foreground leading-tight">
-          {isShop ? "Manage your shop" : "Barbers near you are coming soon"}
-        </h1>
-        <p className="mt-5 text-muted-foreground text-base sm:text-lg">
-          {isShop
-            ? "Set up your barbers, services, portfolio photos and bookable schedule."
-            : "Browse & booking are coming soon."}
-        </p>
-
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          {isShop ? (
-            <>
+        ) : cards.length === 0 ? (
+          <div className="mt-16 text-center text-muted-foreground">No barbers are listed yet. Check back soon.</div>
+        ) : (
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {cards.map(({ barber, cats, minPrice, featured }) => (
               <Link
-                to="/shop"
-                className="h-11 px-6 rounded-full bg-primary text-primary-foreground font-medium hover:opacity-90 transition inline-flex items-center"
+                key={barber.id}
+                to={`/barbers/${barber.id}`}
+                className="group rounded-2xl border border-border/60 overflow-hidden bg-card hover:shadow-lg hover:-translate-y-0.5 transition"
               >
-                Shop onboarding
+                <div className="aspect-[4/3] bg-muted overflow-hidden">
+                  {featured ? (
+                    <img
+                      src={photoUrl(featured.storage_path)}
+                      alt={barber.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center font-display text-4xl text-muted-foreground">
+                      {barber.name.charAt(0)}
+                    </div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <h3 className="font-display text-xl text-foreground">{barber.name}</h3>
+                  {barber.address && (
+                    <p className="mt-1 text-sm text-muted-foreground inline-flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" /> {barber.address}
+                    </p>
+                  )}
+                  {cats.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {cats.map((c) => (
+                        <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-muted text-foreground/80">
+                          {CATEGORY_LABELS[c] ?? c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {minPrice !== null && (
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      from <span className="text-foreground font-medium">{formatMoney(minPrice, settings)}</span>
+                    </p>
+                  )}
+                </div>
               </Link>
-              <Link
-                to="/shop/bookings"
-                className="h-11 px-6 rounded-full border border-border font-medium hover:bg-muted transition inline-flex items-center"
-              >
-                Services & schedule
-              </Link>
-            </>
-          ) : (
-            <button
-              onClick={becomeShop}
-              disabled={upgrading || loading}
-              className="h-11 px-6 rounded-full bg-primary text-primary-foreground font-medium hover:opacity-90 transition disabled:opacity-60"
-            >
-              {upgrading ? "Setting up…" : "Become a shop"}
-            </button>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

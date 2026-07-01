@@ -9,6 +9,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Barbers from "@/pages/Barbers";
+import BarberDetail from "@/pages/BarberDetail";
+import MyBookings from "@/pages/MyBookings";
 import ShopOnboarding from "@/pages/ShopOnboarding";
 import ShopBookings from "@/pages/ShopBookings";
 import NotFound from "@/pages/NotFound";
@@ -26,6 +28,8 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route element={<RequireAuth />}>
                 <Route path="/barbers" element={<Barbers />} />
+                <Route path="/barbers/:id" element={<BarberDetail />} />
+                <Route path="/my-bookings" element={<MyBookings />} />
                 <Route element={<RequireShop />}>
                   <Route path="/shop" element={<ShopOnboarding />} />
                   <Route path="/shop/bookings" element={<ShopBookings />} />
