@@ -10,8 +10,7 @@ export function RequireShop() {
     return <div className="min-h-screen bg-background" />;
   }
 
-  // A signed-in non-shop user is sent to /barbers, where the "Become a shop"
-  // entry point lives.
+  // A signed-in non-shop user has no shop surfaces — send them to browse.
   if (!isShop) {
     return <Navigate to="/barbers" replace />;
   }

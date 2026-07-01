@@ -1,38 +1,16 @@
-import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/auth/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
-import { toast } from "sonner";
 
 // Shared header for the customer surfaces (/barbers, /barbers/:id, /my-bookings).
-// Role-aware: a shop sees a link back to their dashboard; a customer sees a
-// "Become a shop" action (flips their OWN profiles.role to 'shop' via RLS).
+// Existing shops get a link back to their dashboard; customers just browse & book.
 export function CustomerHeader() {
-  const { user } = useAuth();
-  const { isShop, loading, refresh } = useProfile();
+  const { isShop } = useProfile();
   const navigate = useNavigate();
-  const [upgrading, setUpgrading] = useState(false);
 
   async function signOut() {
     await supabase.auth.signOut();
     navigate("/login", { replace: true });
-  }
-
-  async function becomeShop() {
-    if (!user) return;
-    setUpgrading(true);
-    try {
-      const { error } = await supabase.from("profiles").update({ role: "shop" }).eq("id", user.id);
-      if (error) throw error;
-      await refresh();
-      toast.success("You're a shop now — let's set up your barbers.");
-      navigate("/shop", { replace: true });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not upgrade to a shop");
-    } finally {
-      setUpgrading(false);
-    }
   }
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -53,21 +31,13 @@ export function CustomerHeader() {
           <NavLink to="/my-bookings" className={linkClass}>
             My bookings
           </NavLink>
-          {isShop ? (
+          {isShop && (
             <Link
               to="/shop"
               className="h-9 px-4 rounded-full border border-border text-sm font-medium hover:bg-muted transition inline-flex items-center"
             >
               Shop dashboard
             </Link>
-          ) : (
-            <button
-              onClick={becomeShop}
-              disabled={upgrading || loading}
-              className="h-9 px-4 rounded-full border border-border text-sm font-medium hover:bg-muted transition disabled:opacity-60"
-            >
-              {upgrading ? "Setting up…" : "Become a shop"}
-            </button>
           )}
           <button
             onClick={signOut}
