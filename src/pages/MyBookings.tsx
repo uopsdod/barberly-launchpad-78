@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/auth/AuthProvider";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { formatMoney } from "@/lib/format";
+import { errMessage } from "@/lib/errors";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
@@ -71,7 +72,7 @@ export default function MyBookings() {
       toast.success("Booking cancelled — the time slot is free again.");
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not cancel this booking");
+      toast.error(errMessage(err, "Could not cancel this booking"));
     } finally {
       setCancelling(null);
     }

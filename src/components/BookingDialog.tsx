@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney, type PlatformSettings } from "@/lib/format";
+import { errMessage } from "@/lib/errors";
 import type { Tables } from "@/integrations/supabase/types";
 import {
   Dialog,
@@ -139,7 +140,7 @@ export function BookingDialog({ open, onOpenChange, service, barberId, barberNam
       onOpenChange(false);
       navigate("/my-bookings");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not complete the booking");
+      toast.error(errMessage(err, "Could not complete the booking"));
     } finally {
       setSubmitting(false);
     }
